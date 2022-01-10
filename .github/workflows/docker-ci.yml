@@ -1,0 +1,47 @@
+name: Docker CI
+
+# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  push-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.17
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+
+      - name: Checkout code into the Go module directory
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build
+        run: make build
+
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        
+      # Build and push Docker image with Buildx (don't push on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: fatindeed/docker-compose-deployer:latest
